@@ -59,11 +59,5 @@ namespace Jarvis.DocumentStore.Core.Storage
         /// <param name="sourceStream">The stream that contains the byte to be written.</param>
         /// <returns>The underling <see cref="BlobId"/> used to identify this blob</returns>
         BlobId Upload(DocumentFormat format, FileNameWithExtension fileName, Stream sourceStream);
-
-        /// <summary>
-        /// Get storage information about this specific store.
-        /// </summary>
-        /// <returns></returns>
-        BlobStoreInfo GetInfo();
     }
 }

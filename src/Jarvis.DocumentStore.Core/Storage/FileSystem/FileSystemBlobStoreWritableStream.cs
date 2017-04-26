@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Runtime.Remoting;
 using Fasterflect;
+using Newtonsoft.Json;
 
 namespace Jarvis.DocumentStore.Core.Storage.FileSystem
 {
@@ -27,27 +28,27 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
     /// 
     /// This wrapper is used to accomplish this task.
     /// </summary>
-    public class FileSystemBlobStoreWritableStream : Stream
+    internal class FileSystemBlobStoreWritableStream : Stream
     {
         private readonly Stream _wrapped;
         private readonly FileSystemBlobDescriptor _descriptor;
         private readonly MD5 _md5;
-        private readonly IMongoCollection<FileSystemBlobDescriptor> _blobDescriptorCollection;
         private readonly IBlobWriter _writer;
         private Int64 _length;
         private Boolean _wrappedClosed;
+        private readonly FileSystemBlobDescriptorStore _blobDescriptorStore;
 
-        public FileSystemBlobStoreWritableStream(
+        internal FileSystemBlobStoreWritableStream(
             Stream wrapped,
             FileSystemBlobDescriptor descriptor,
-            IMongoCollection<FileSystemBlobDescriptor> blobDescriptorCollection,
+            FileSystemBlobDescriptorStore blobDescriptorStore,
             IBlobWriter writer)
         {
             _wrapped = wrapped;
             _descriptor = descriptor;
             _md5 = MD5.Create();
-            _blobDescriptorCollection = blobDescriptorCollection;
             _writer = writer;
+            _blobDescriptorStore = blobDescriptorStore;
         }
 
         public override bool CanRead
@@ -131,7 +132,7 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
                 _md5.TransformFinalBlock(buffer, 0, 0);
                 _descriptor.Md5 = BitConverter.ToString(_md5.Hash).Replace("-", "");
                 _descriptor.Length = _length;
-                _blobDescriptorCollection.Save(_descriptor, _descriptor.BlobId);
+                _blobDescriptorStore.Save(_descriptor);
                 _wrappedClosed = true;
             }
             base.Close();

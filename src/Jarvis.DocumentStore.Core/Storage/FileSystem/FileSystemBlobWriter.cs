@@ -22,7 +22,6 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
     internal class FileSystemBlobWriter : IBlobWriter
 #pragma warning restore S3881 // "IDisposable" should be implemented correctly
     {
-        private readonly IMongoCollection<FileSystemBlobDescriptor> _blobDescriptorCollection;
         private readonly ILogger _logger;
         private readonly FileSystemBlobDescriptor _descriptor;
         private readonly String _destinationFileName;
@@ -32,12 +31,11 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
             BlobId blobId,
             FileNameWithExtension fileName,
             String destinationFileName,
-            IMongoCollection<FileSystemBlobDescriptor> blobDescriptorCollection,
+            FileSystemBlobDescriptorStore blobDescritproStore,
             ILogger logger)
         {
             BlobId = blobId;
             FileName = fileName;
-            _blobDescriptorCollection = blobDescriptorCollection;
             _logger = logger;
 
             _descriptor = new FileSystemBlobDescriptor()
@@ -48,12 +46,11 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
                 ContentType = MimeTypes.GetMimeType(FileName)
             };
             _destinationFileName = destinationFileName;
-            _blobDescriptorCollection.Save(_descriptor, _descriptor.BlobId);
 
             //Create a wrapper of the stream
             var originalStream = new FileStream(destinationFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             originalStream.SetLength(0);
-            _writableStream = new FileSystemBlobStoreWritableStream(originalStream, _descriptor, _blobDescriptorCollection, this);
+            _writableStream = new FileSystemBlobStoreWritableStream(originalStream, _descriptor, blobDescritproStore, this);
         }
 
         public BlobId BlobId { get; }

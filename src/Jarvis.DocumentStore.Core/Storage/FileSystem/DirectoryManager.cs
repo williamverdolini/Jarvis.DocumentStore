@@ -24,6 +24,16 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
             Directory.EnsureDirectory(baseDirectory);
         }
 
+        public String BaseDirectory
+        {
+            get { return _baseDirectory; }
+        }
+
+        internal string GetBlobNameFromDescriptorFileName(string fileName)
+        {
+            return Path.ChangeExtension(fileName, ".blob");
+        }
+
         /// <summary>
         /// Create a series of subdirectories that avoid cluttering thousands 
         /// of files inside the very same folder.
@@ -36,6 +46,26 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
         /// <returns></returns>
         public String GetFileNameFromBlobId(BlobId blobId)
         {
+            return GetRawFileNameFromBlobId(blobId, "blob");
+        }
+
+        /// <summary>
+        /// Create a series of subdirectories that avoid cluttering thousands 
+        /// of files inside the very same folder.
+        /// The logic is the following, we want at most 1000 file in a folder, so
+        /// we divide the id by 1000 and we pad to 15 number, then we subdivide
+        /// the resulting number in blok by 4, each folder will contain at maximum 
+        /// 1000 folders or files.
+        /// </summary> 
+        /// <param name="blobId"></param>
+        /// <returns></returns>
+        public String GetDescriptorFileNameFromBlobId(BlobId blobId)
+        {
+           return GetRawFileNameFromBlobId(blobId, "descriptor");
+        }
+
+        private String GetRawFileNameFromBlobId(BlobId blobId, String extension)
+        {
             var id = blobId.Id;
             var stringPadded = String.Format("{0:D15}", id / 1000);
             StringBuilder directoryName = new StringBuilder(15);
@@ -47,7 +77,7 @@ namespace Jarvis.DocumentStore.Core.Storage.FileSystem
             var finalDirectory = Path.Combine(_baseDirectory, blobId.Format, directoryName.ToString());
             Directory.EnsureDirectory(finalDirectory);
 
-            return finalDirectory + id + ".blob";
+            return finalDirectory + id + "." + extension;
         }
     }
 }

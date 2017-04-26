@@ -189,7 +189,10 @@
     <Compile Include="Domain\Document\Events\DocumentInitialized.cs" />
     <Compile Include="Domain\Document\Events\DocumentLinked.cs" />
     <Compile Include="Domain\Document\DocumentState.cs" />
+    <Compile Include="EventHandlers\TenantStatsProjection.cs" />
     <Compile Include="ReadModel\DocumentDeletedReadModel.cs" />
+    <Compile Include="ReadModel\TenantStatsReadModel.cs" />
+    <Compile Include="Storage\FileSystem\FileSystemBlobDescriptorStore.cs" />
     <Compile Include="Storage\FileSystem\PinvokeWindowsNetworking.cs" />
     <Compile Include="Storage\FileSystem\DirectoryManager.cs" />
     <Compile Include="Storage\FileSystem\FileSystemBlobDescriptor.cs" />

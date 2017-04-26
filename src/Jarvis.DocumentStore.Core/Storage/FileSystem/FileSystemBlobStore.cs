@@ -16,6 +16,7 @@ using Path = Jarvis.DocumentStore.Shared.Helpers.DsPath;
 using File = Jarvis.DocumentStore.Shared.Helpers.DsFile;
 using Directory = Jarvis.DocumentStore.Shared.Helpers.DsDirectory;
 using MongoDB.Bson;
+using Newtonsoft.Json;
 
 namespace Jarvis.DocumentStore.Core.Storage
 {
@@ -29,12 +30,10 @@ namespace Jarvis.DocumentStore.Core.Storage
     {
         public ILogger Logger { get; set; }
 
-        private const int FolderPrefixLength = 3;
         private readonly String _baseDirectory;
-        private readonly IMongoCollection<FileSystemBlobDescriptor> _blobDescriptorCollection;
         private readonly ICounterService _counterService;
-
         private readonly DirectoryManager _directoryManager;
+        private readonly FileSystemBlobDescriptorStore _fileSystemBlobDescriptorStore;
 
         /// <summary>
         /// Standard Constructor
@@ -46,22 +45,20 @@ namespace Jarvis.DocumentStore.Core.Storage
         /// will be stored</param>
         /// <param name="counterService">Counter service to generate new <see cref="BlobId"/></param>
         public FileSystemBlobStore(
-            IMongoDatabase db,
             String collectionName,
             String baseDirectory,
             ICounterService counterService)
         {
             _baseDirectory = baseDirectory;
-            _blobDescriptorCollection = db.GetCollection<FileSystemBlobDescriptor>(collectionName);
             _directoryManager = new DirectoryManager(_baseDirectory);
-
+            _fileSystemBlobDescriptorStore = new FileSystemBlobDescriptorStore(_directoryManager);
             _counterService = counterService;
         }
 
         public IBlobWriter CreateNew(DocumentFormat format, FileNameWithExtension fname)
         {
             var blobId = new BlobId(format, _counterService.GetNext(format));
-            return new FileSystemBlobWriter(blobId, fname, GetFileNameFromBlobIdAndRemoveDuplicates(blobId), _blobDescriptorCollection, Logger);
+            return new FileSystemBlobWriter(blobId, fname, GetFileNameFromBlobIdAndRemoveDuplicates(blobId), _fileSystemBlobDescriptorStore, Logger);
         }
 
         public IBlobDescriptor GetDescriptor(BlobId blobId)
@@ -69,29 +66,20 @@ namespace Jarvis.DocumentStore.Core.Storage
             if (blobId == null)
                 throw new ArgumentNullException(nameof(blobId));
 
-            Logger.DebugFormat($"GetDescriptor for blobid {blobId} on {_blobDescriptorCollection.CollectionNamespace.FullName}");
+            Logger.DebugFormat($"GetDescriptor for blobid {blobId} on {_directoryManager.BaseDirectory}");
 
-            var descriptor =_blobDescriptorCollection.FindOneById(blobId);
+            var descriptorFileName = _directoryManager.GetDescriptorFileNameFromBlobId(blobId);
+            if (!File.Exists(descriptorFileName))
+                throw new Exception($"Descriptor for {blobId} not found in {descriptorFileName}");
+
+            IBlobDescriptor descriptor = _fileSystemBlobDescriptorStore.Load(blobId);
             if (descriptor == null)
             {
-                var message = $"Descriptor for blobid {blobId} not found!";
+                var message = $"Descriptor for blobid {blobId}, not found in store {_directoryManager.BaseDirectory}!";
                 Logger.DebugFormat(message);
                 throw new Exception(message);
             }
-            descriptor.SetLocalFileName(_directoryManager.GetFileNameFromBlobId(blobId));
             return descriptor;
-        }
-
-        public BlobStoreInfo GetInfo()
-        {
-            var allInfos = _blobDescriptorCollection.Aggregate()
-                .AppendStage<BsonDocument>(BsonDocument.Parse("{$group:{_id:1, size:{$sum:'$Length'}, count:{$sum:1}}}"))
-                .ToEnumerable()
-                .FirstOrDefault();
-            if (allInfos == null)
-                return new BlobStoreInfo(0, 0);
-
-            return new BlobStoreInfo(allInfos["size"].AsInt64, allInfos["count"].AsInt32);
         }
 
         public BlobId Upload(DocumentFormat format, string pathToFile)
@@ -103,7 +91,7 @@ namespace Jarvis.DocumentStore.Core.Storage
             using (var fileStream = new FileStream(pathToFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 var descriptor = SaveStream(format, new FileNameWithExtension(Path.GetFileName(pathToFile)), fileStream);
-                _blobDescriptorCollection.Save(descriptor, descriptor.BlobId);
+                _fileSystemBlobDescriptorStore.Save(descriptor);
                 return descriptor.BlobId;
             }
         }
@@ -111,8 +99,7 @@ namespace Jarvis.DocumentStore.Core.Storage
         public BlobId Upload(DocumentFormat format, FileNameWithExtension fileName, Stream sourceStream)
         {
             var descriptor = SaveStream(format, fileName, sourceStream);
-
-            _blobDescriptorCollection.Save(descriptor, descriptor.BlobId);
+            _fileSystemBlobDescriptorStore.Save(descriptor);
             return descriptor.BlobId;
         }
 
@@ -185,9 +172,9 @@ namespace Jarvis.DocumentStore.Core.Storage
             if (!Directory.Exists(folder))
                 throw new ArgumentException($"folder {folder} does not exists", nameof(folder));
 
-            var descriptor = _blobDescriptorCollection.FindOneById(blobId);
-            if (descriptor == null)
-                throw new ArgumentException($"Descriptor for {blobId} not found in {_blobDescriptorCollection.CollectionNamespace.FullName}");
+            var descriptorFileName = _directoryManager.GetDescriptorFileNameFromBlobId(blobId);
+            if (!File.Exists(descriptorFileName))
+                throw new ArgumentException($"Descriptor for {blobId} not found in {descriptorFileName}");
 
             var localFileName = _directoryManager.GetFileNameFromBlobId(blobId);
             if (!File.Exists(localFileName))
@@ -196,6 +183,7 @@ namespace Jarvis.DocumentStore.Core.Storage
                 throw new ArgumentException($"Blob {blobId} not found");
             }
 
+            var descriptor = _fileSystemBlobDescriptorStore.Load(blobId);
             var originalFileName = descriptor.FileNameWithExtension.ToString();
             string destinationFileName = Path.Combine(folder, originalFileName);
             Int32 uniqueId = 1;
@@ -212,8 +200,8 @@ namespace Jarvis.DocumentStore.Core.Storage
         {
             var fileName = _directoryManager.GetFileNameFromBlobId(blobId);
             File.Delete(fileName);
-
-            _blobDescriptorCollection.RemoveById(blobId);
+            var descriptorFileName = _directoryManager.GetDescriptorFileNameFromBlobId(blobId);
+            File.Delete(descriptorFileName);
         }
     }
 }

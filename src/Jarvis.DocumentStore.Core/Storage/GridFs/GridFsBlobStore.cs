@@ -111,25 +111,6 @@ namespace Jarvis.DocumentStore.Core.Storage.GridFs
             }
         }
 
-        public BlobStoreInfo GetInfo()
-        {
-            var aggregation = new AggregateArgs()
-            {
-                Pipeline = new[] { BsonDocument.Parse("{$group:{_id:1, size:{$sum:'$length'}, count:{$sum:1}}}") }
-            };
-
-            var allInfos = _fs.Values
-                .Select(x => x.Files.Aggregate(aggregation).FirstOrDefault())
-                .Where(x => x != null)
-                .Select(x => new { size = x["size"].ToInt64(), files = x["count"].ToInt64() })
-                .ToArray();
-
-            return new BlobStoreInfo(
-                allInfos.Sum(x => x.size),
-                allInfos.Sum(x => x.files)
-            );
-        }
-
         MongoGridFS GetGridFsByFormat(DocumentFormat format)
         {
             return _fs.GetOrAdd(format, CreateGridFsForFormat);

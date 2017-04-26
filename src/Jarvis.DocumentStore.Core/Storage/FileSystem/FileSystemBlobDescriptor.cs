@@ -21,7 +21,6 @@ namespace Jarvis.DocumentStore.Core.Storage
     /// </summary>
     public class FileSystemBlobDescriptor : IBlobDescriptor
     {
-        [BsonId]
         public BlobId BlobId { get; set; }
 
         public FileNameWithExtension FileNameWithExtension { get; set; }

@@ -126,7 +126,7 @@ namespace Jarvis.DocumentStore.Tests.SelfHostIntegratonTests
         public void Upload_pdf_then_delete()
         {
             _docs.UploadAsync(TestConfig.PathToDocumentPdf, DocumentHandle.FromString("Revision_42")).Wait();
-            Thread.Sleep(3000);
+            Thread.Sleep(10000);
             _docs.DeleteAsync(DocumentHandle.FromString("Revision_42")).Wait();
         }
 

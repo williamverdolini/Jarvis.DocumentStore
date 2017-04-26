@@ -28,7 +28,7 @@ namespace Jarvis.DocumentStore.Tests.Storage
             Directory.CreateDirectory(_tempLocalDirectory);
             _directoryManager = new DirectoryManager(_tempLocalDirectory);
 
-            _sut = new FileSystemBlobStore(MongoDbTestConnectionProvider.OriginalsDb,
+            _sut = new FileSystemBlobStore(
                 "originals",
                 _tempLocalDirectory,
                 new CounterService(MongoDbTestConnectionProvider.SystemDb))
