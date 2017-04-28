@@ -25,7 +25,7 @@ namespace Jarvis.DocumentStore.Core.Storage
     /// avoid having GB of data inside of a GridFs, and keeping in mongo only
     /// the information that are necessary, leaving the binary blob to file system.
     /// </summary>
-    public class FileSystemBlobStore : IBlobStore
+    public class FileSystemBlobStore : IBlobStore, IBlobStoreAdvanced
     {
         public ILogger Logger { get; set; }
 
@@ -56,11 +56,13 @@ namespace Jarvis.DocumentStore.Core.Storage
             _directoryManager = new DirectoryManager(_baseDirectory);
 
             _counterService = counterService;
+            Logger = NullLogger.Instance;
         }
 
         public IBlobWriter CreateNew(DocumentFormat format, FileNameWithExtension fname)
         {
             var blobId = new BlobId(format, _counterService.GetNext(format));
+            if (Logger.IsDebugEnabled) Logger.Debug($"CreateNew blob for format {format} with file {fname} - assigned blobId: {blobId}");
             return new FileSystemBlobWriter(blobId, fname, GetFileNameFromBlobIdAndRemoveDuplicates(blobId), _blobDescriptorCollection, Logger);
         }
 
@@ -69,13 +71,12 @@ namespace Jarvis.DocumentStore.Core.Storage
             if (blobId == null)
                 throw new ArgumentNullException(nameof(blobId));
 
-            Logger.DebugFormat($"GetDescriptor for blobid {blobId} on {_blobDescriptorCollection.CollectionNamespace.FullName}");
-
+            if (Logger.IsDebugEnabled)  Logger.Debug($"GetDescriptor for blobid {blobId} on {_blobDescriptorCollection.CollectionNamespace.FullName}");
             var descriptor =_blobDescriptorCollection.FindOneById(blobId);
             if (descriptor == null)
             {
                 var message = $"Descriptor for blobid {blobId} not found!";
-                Logger.DebugFormat(message);
+                Logger.Info(message);
                 throw new Exception(message);
             }
             descriptor.SetLocalFileName(_directoryManager.GetFileNameFromBlobId(blobId));
@@ -100,9 +101,11 @@ namespace Jarvis.DocumentStore.Core.Storage
             if (!finfo.Exists)
                 throw new ArgumentException($"File {pathToFile} not found");
 
+            if (Logger.IsDebugEnabled) Logger.Debug($"Upload document format {format}. File: {pathToFile}");
             using (var fileStream = new FileStream(pathToFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 var descriptor = SaveStream(format, new FileNameWithExtension(Path.GetFileName(pathToFile)), fileStream);
+                if (Logger.IsDebugEnabled) Logger.Debug($"Uploaded document format {format}. File: {pathToFile} with blob Id {descriptor.BlobId}");
                 _blobDescriptorCollection.Save(descriptor, descriptor.BlobId);
                 return descriptor.BlobId;
             }
@@ -111,7 +114,7 @@ namespace Jarvis.DocumentStore.Core.Storage
         public BlobId Upload(DocumentFormat format, FileNameWithExtension fileName, Stream sourceStream)
         {
             var descriptor = SaveStream(format, fileName, sourceStream);
-
+            if (Logger.IsDebugEnabled) Logger.Debug($"Uploaded document format {format} from stream with filename {fileName} with blob Id {descriptor.BlobId}");
             _blobDescriptorCollection.Save(descriptor, descriptor.BlobId);
             return descriptor.BlobId;
         }
@@ -127,6 +130,18 @@ namespace Jarvis.DocumentStore.Core.Storage
         private FileSystemBlobDescriptor SaveStream(DocumentFormat format, FileNameWithExtension fileName, Stream sourceStream)
         {
             var blobId = new BlobId(format, _counterService.GetNext(format));
+            return InnerPersistOfBlob(blobId, fileName, sourceStream);
+        }
+
+        /// <summary>
+        /// Persist a stream given a blobId.
+        /// </summary>
+        /// <param name="blobId"></param>
+        /// <param name="fileName"></param>
+        /// <param name="sourceStream"></param>
+        /// <returns></returns>
+        private FileSystemBlobDescriptor InnerPersistOfBlob(BlobId blobId, FileNameWithExtension fileName, Stream sourceStream)
+        {
             FileSystemBlobDescriptor descriptor = new FileSystemBlobDescriptor()
             {
                 BlobId = blobId,
@@ -156,7 +171,7 @@ namespace Jarvis.DocumentStore.Core.Storage
                 descriptor.Length = length;
                 descriptor.Md5 = BitConverter.ToString(md5.Hash).Replace("-", "");
             }
-            Logger.Debug($"Blob {blobId} saved in file {destinationFileName} with hash {descriptor.Md5} and length {descriptor.Length}");
+            Logger.Info($"Blob {blobId} saved in file {destinationFileName} with hash {descriptor.Md5} and length {descriptor.Length}");
             return descriptor;
         }
 
@@ -205,6 +220,8 @@ namespace Jarvis.DocumentStore.Core.Storage
             }
 
             File.Copy(localFileName, destinationFileName);
+
+            if (Logger.IsDebugEnabled) Logger.Debug($"Blob {blobId} downloaded in folder {folder} with name {destinationFileName}");
             return destinationFileName;
         }
 
@@ -215,5 +232,42 @@ namespace Jarvis.DocumentStore.Core.Storage
 
             _blobDescriptorCollection.RemoveById(blobId);
         }
+
+        #region Advanced
+
+        public IBlobDescriptor Persist(BlobId blobId, string fileName)
+        {
+            using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                return Persist(blobId, new FileNameWithExtension(Path.GetFileName(fileName)), fs);
+            }
+        }
+
+        public IBlobDescriptor Persist(BlobId blobId, FileNameWithExtension fileName, Stream inputStream)
+        {
+            var descriptor = InnerPersistOfBlob(blobId, fileName, inputStream);
+            _blobDescriptorCollection.Save(descriptor, descriptor.BlobId);
+            return descriptor;
+        }
+
+        public void RawStore(BlobId blobId, IBlobDescriptor descriptor)
+        {
+            using (var stream = descriptor.OpenRead())
+            {
+                InnerPersistOfBlob(blobId, descriptor.FileNameWithExtension, stream);
+                FileSystemBlobDescriptor newDescriptor = new FileSystemBlobDescriptor()
+                {
+                    BlobId = blobId,
+                    ContentType = descriptor.ContentType,
+                    FileNameWithExtension = descriptor.FileNameWithExtension,
+                    Length = descriptor.Length,
+                    Md5 = descriptor.Hash.ToString(),
+                    Timestamp = DateTime.UtcNow,
+                };
+                _blobDescriptorCollection.Save(newDescriptor, newDescriptor.BlobId);
+            }
+        }
+
+        #endregion
     }
 }

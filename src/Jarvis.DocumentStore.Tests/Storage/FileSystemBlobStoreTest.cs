@@ -11,6 +11,7 @@ using Jarvis.Framework.Shared.IdentitySupport;
 using Castle.Core.Logging;
 using Jarvis.DocumentStore.Client.Model;
 using Jarvis.DocumentStore.Core.Storage.FileSystem;
+using Jarvis.DocumentStore.Core.Model;
 
 namespace Jarvis.DocumentStore.Tests.Storage
 {

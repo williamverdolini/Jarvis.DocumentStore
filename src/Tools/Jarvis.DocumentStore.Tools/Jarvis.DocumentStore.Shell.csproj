@@ -112,8 +112,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BlobStoreSync\BlobStoreSynchronizer.cs" />
+    <Compile Include="BlobStoreSync\BlobStoretype.cs" />
+    <Compile Include="BlobStoreSync\TenantConfiguration.cs" />
     <Compile Include="CheckOrphanedBlobs.cs" />
     <Compile Include="CheckQueueScheduledJobs.cs" />
+    <Compile Include="BlobStoreSync\BlobStoreSync.cs" />
     <Compile Include="Helpers\ConsoleHelper.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

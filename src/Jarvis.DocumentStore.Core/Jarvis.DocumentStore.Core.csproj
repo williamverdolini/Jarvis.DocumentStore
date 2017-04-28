@@ -201,6 +201,7 @@
     <Compile Include="Storage\FileSystem\FileSystemBlobStore.cs" />
     <Compile Include="Storage\FileSystem\FileSystemBlobStoreWritableStream.cs" />
     <Compile Include="Storage\FileSystem\FileSystemBlobWriter.cs" />
+    <Compile Include="Storage\IBlobStoreAdvanced.cs" />
     <Compile Include="Support\DateTimeService.cs" />
     <Compile Include="Support\DocumentStoreMultiTenantCommandBus.cs" />
     <Compile Include="Support\DsDisposableAction.cs" />

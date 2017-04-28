@@ -14,9 +14,10 @@ using File = Jarvis.DocumentStore.Shared.Helpers.DsFile;
 
 namespace Jarvis.DocumentStore.Core.Storage.GridFs
 {
-    public class GridFsBlobStore : IBlobStore
+    public class GridFsBlobStore : IBlobStore, IBlobStoreAdvanced
     {
         public ILogger Logger { get; set; }
+
         readonly MongoDatabase _database;
         private readonly ICounterService _counterService;
         readonly ConcurrentDictionary<DocumentFormat, MongoGridFS> _fs = new ConcurrentDictionary<DocumentFormat, MongoGridFS>();
@@ -25,8 +26,8 @@ namespace Jarvis.DocumentStore.Core.Storage.GridFs
         {
             _database = database;
             _counterService = counterService;
-
             LoadFormatsFromDatabase();
+            Logger = NullLogger.Instance;
         }
 
         private void LoadFormatsFromDatabase()
@@ -43,6 +44,11 @@ namespace Jarvis.DocumentStore.Core.Storage.GridFs
         public IBlobWriter CreateNew(DocumentFormat format, FileNameWithExtension fname)
         {
             var blobId = new BlobId(format, _counterService.GetNext(format));
+            return CreateBlobWriterFromBlobId(format, fname, blobId);
+        }
+
+        private IBlobWriter CreateBlobWriterFromBlobId(DocumentFormat format, FileNameWithExtension fname, BlobId blobId)
+        {
             var gridFs = GetGridFsByFormat(format);
             Logger.DebugFormat("Creating file {0} on {1}", blobId, gridFs.DatabaseName);
             var stream = gridFs.Create(fname, new MongoGridFSCreateOptions()
@@ -149,5 +155,41 @@ namespace Jarvis.DocumentStore.Core.Storage.GridFs
         {
             return GetGridFsByFormat(id.Format);
         }
+
+        #region Advanced
+
+        public IBlobDescriptor Persist(BlobId blobId, string fileName)
+        {
+            using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                return Persist(blobId, new FileNameWithExtension(Path.GetFileName(fileName)), fs);
+            }
+        }
+
+        public IBlobDescriptor Persist(BlobId blobId, FileNameWithExtension fileName, Stream inputStream)
+        {
+            using (var writer = CreateBlobWriterFromBlobId(blobId.Format, fileName, blobId))
+            {
+                inputStream.CopyTo(writer.WriteStream);
+            }
+            return GetDescriptor(blobId);
+        }
+
+        /// <summary>
+        /// We have no real Raw storage option for Gridfs, but we can simply store all raw bytes
+        /// inside the gridfs.
+        /// </summary>
+        /// <param name="blobId"></param>
+        /// <param name="descriptor"></param>
+        public void RawStore(BlobId blobId, IBlobDescriptor descriptor)
+        {
+            using (var writer = CreateBlobWriterFromBlobId(blobId.Format, descriptor.FileNameWithExtension, blobId))
+            using (var inputStream = descriptor.OpenRead())
+            {
+                inputStream.CopyTo(writer.WriteStream);
+            }
+        }
+
+        #endregion
     }
 }

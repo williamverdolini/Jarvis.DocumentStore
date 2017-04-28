@@ -1,6 +1,8 @@
 ﻿using Castle.Core.Logging;
 using Jarvis.ConfigurationService.Client;
+using Jarvis.DocumentStore.Core.Model;
 using Jarvis.DocumentStore.LiveBackup.Support;
+using MongoDB.Bson.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -25,9 +27,19 @@ namespace Jarvis.DocumentStore.LiveBackup
             _logger = logger;
         }
 
-
         static void Main(string[] args)
         {
+            //Preload class needed by mongo
+            BsonClassMap.LookupClassMap(typeof(BlobId));
+            BsonClassMap.LookupClassMap(typeof(DocumentHandle));
+
+            BsonClassMap.RegisterClassMap<FileNameWithExtension>(m =>
+            {
+                m.AutoMap();
+                m.MapProperty(x => x.FileName).SetElementName("name");
+                m.MapProperty(x => x.Extension).SetElementName("ext");
+            });
+
             ConfigurationServiceClient.AppDomainInitializer(
                (message, isError, exception) =>
                {
@@ -54,10 +66,10 @@ namespace Jarvis.DocumentStore.LiveBackup
                 }
                 else if (args[0] == "restore")
                 {
-                    Bootstrapper bs = new Bootstrapper();
-                    bs.Start(false);
-                    var restoreJob = bs.GetRestoreJob();
-                    restoreJob.Start();
+                    //Bootstrapper bs = new Bootstrapper();
+                    //bs.Start(false);
+                    //var restoreJob = bs.GetRestoreJob();
+                    //restoreJob.Start();
                 }
             }
             else
@@ -71,7 +83,6 @@ namespace Jarvis.DocumentStore.LiveBackup
                         Console.ReadKey();
                     }
                 }
-
             }
         }
 
@@ -89,7 +100,6 @@ namespace Jarvis.DocumentStore.LiveBackup
 
                 return HostFactory.Run(x =>
                 {
-
                     x.UseOldLog4Net("log4net.config");
                     x.Service<Bootstrapper>(s =>
                     {

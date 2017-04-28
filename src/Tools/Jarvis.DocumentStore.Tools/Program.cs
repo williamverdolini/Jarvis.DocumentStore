@@ -1,5 +1,12 @@
-﻿using Jarvis.ConfigurationService.Client;
+﻿using Castle.Core.Logging;
+using Castle.Facilities.Logging;
+using Castle.Windsor;
+using Jarvis.ConfigurationService.Client;
+using Jarvis.DocumentStore.Core.Model;
+using Jarvis.DocumentStore.Shell.BlobStoreSync;
 using Jarvis.Framework.Shared.IdentitySupport;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
@@ -15,6 +22,17 @@ namespace Jarvis.DocumentStore.Tools
     {
         private static Int32 Main(string[] args)
         {
+            //Premap everything you need to load.
+            BsonClassMap.LookupClassMap(typeof(BlobId));
+            BsonClassMap.LookupClassMap(typeof(DocumentHandle));
+
+            BsonClassMap.RegisterClassMap<FileNameWithExtension>(m =>
+            {
+                m.AutoMap();
+                m.MapProperty(x => x.FileName).SetElementName("name");
+                m.MapProperty(x => x.Extension).SetElementName("ext");
+            });
+
             try
             {
                 RunShell();
@@ -76,6 +94,7 @@ this should be changed to
             Process.Start("_lasterror.txt");
             return 1;
         }
+        static ILoggerFactory _loggerFactory;
 
         private static void RunShell()
         {
@@ -97,6 +116,12 @@ this should be changed to
                 new FileInfo("defaultParameters.config"),
                 missingParametersAction: ConfigurationManagerMissingParametersAction.Blank);
 
+            IWindsorContainer _container = new WindsorContainer();
+            _container.AddFacility<LoggingFacility>(f =>f
+                .LogUsing(LoggerImplementation.ExtendedLog4net)
+                .WithConfig("log4net.config"));
+            _loggerFactory = _container.Resolve<ILoggerFactory>();
+
             var commands = new Dictionary<String, Func<Boolean>>();
             commands.Add("Check oprhaned blob", () =>
             {
@@ -112,6 +137,20 @@ this should be changed to
             commands.Add("Start sync artifacts job", () =>
             {
                 FullArtifactSyncJob.StartSync();
+                return false;
+            });
+
+            commands.Add("Copy blob from GridFs to FileSystemFs", () =>
+            {
+                BlobStoreSync command = new BlobStoreSync(_loggerFactory.Create(typeof(BlobStoreSync)));
+                command.SyncAllTenants(BlobStoreType.GridFs, BlobStoreType.FileSystem);
+                return false;
+            });
+
+            commands.Add("Copy blob from FileSystemFs to GridFs", () =>
+            {
+                BlobStoreSync command = new BlobStoreSync(_loggerFactory.Create(typeof(BlobStoreSync)));
+                command.SyncAllTenants(BlobStoreType.FileSystem, BlobStoreType.GridFs);
                 return false;
             });
 
@@ -156,8 +195,15 @@ this should be changed to
                 if (action(command))
                 {
                     return;
-                }
             }
+        }
+
+        static void Message(string msg)
+        {
+            Console.WriteLine("");
+            Console.WriteLine(msg);
+            Console.WriteLine("(invio per continuare)");
+            Console.ReadLine();
         }
 
         private static void Banner(string title)
