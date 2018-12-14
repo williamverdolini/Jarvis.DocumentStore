@@ -117,7 +117,7 @@ this should be changed to
                 missingParametersAction: ConfigurationManagerMissingParametersAction.Blank);
 
             IWindsorContainer _container = new WindsorContainer();
-            _container.AddFacility<LoggingFacility>(f =>f
+            _container.AddFacility<LoggingFacility>(f => f
                 .LogUsing(LoggerImplementation.ExtendedLog4net)
                 .WithConfig("log4net.config"));
             _loggerFactory = _container.Resolve<ILoggerFactory>();
@@ -195,6 +195,7 @@ this should be changed to
                 if (action(command))
                 {
                     return;
+                }
             }
         }
 
