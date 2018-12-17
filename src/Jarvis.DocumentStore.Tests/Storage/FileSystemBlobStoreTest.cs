@@ -27,11 +27,13 @@ namespace Jarvis.DocumentStore.Tests.Storage
         {
             _tempLocalDirectory = Path.GetTempPath() + Guid.NewGuid().ToString();
             Directory.CreateDirectory(_tempLocalDirectory);
-            _directoryManager = new DirectoryManager(_tempLocalDirectory);
+            _directoryManager = new DirectoryManager(_tempLocalDirectory, 3);
 
             _sut = new FileSystemBlobStore(MongoDbTestConnectionProvider.OriginalsDb,
                 "originals",
                 _tempLocalDirectory,
+                "",
+                "",
                 new CounterService(MongoDbTestConnectionProvider.SystemDb))
             {
                 Logger = new ConsoleLogger()

@@ -1,6 +1,7 @@
 ﻿using Castle.Core.Logging;
 using Jarvis.DocumentStore.Core.Model;
 using Jarvis.DocumentStore.Core.Storage;
+using Jarvis.DocumentStore.Core.Storage.FileSystem;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
@@ -43,6 +44,8 @@ namespace Jarvis.DocumentStore.Shell.BlobStoreSync
                 case BlobStoreType.FileSystem:
                     _originalStore = _config.OriginalFileSystemBlobStore;
                     _artifactStore = _config.ArtifactsFileSystemBlobStore;
+
+                
                     break;
                 default:
                     throw new NotSupportedException($"Source {source} not supported");

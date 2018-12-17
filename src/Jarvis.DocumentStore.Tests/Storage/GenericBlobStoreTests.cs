@@ -41,6 +41,8 @@ namespace Jarvis.DocumentStore.Tests.Storage
                 var fsStore = new FileSystemBlobStore(MongoDbTestConnectionProvider.OriginalsDb,
                     "originals",
                     _tempLocalDirectory,
+                    "",
+                    "",
                     new CounterService(MongoDbTestConnectionProvider.SystemDb))
                 {
                     Logger = new ConsoleLogger()

@@ -31,6 +31,8 @@ namespace Jarvis.DocumentStore.Core.Storage
 
         private const int FolderPrefixLength = 3;
         private readonly String _baseDirectory;
+        private readonly string _userName;
+        private readonly string _password;
         private readonly IMongoCollection<FileSystemBlobDescriptor> _blobDescriptorCollection;
         private readonly ICounterService _counterService;
 
@@ -49,13 +51,18 @@ namespace Jarvis.DocumentStore.Core.Storage
             IMongoDatabase db,
             String collectionName,
             String baseDirectory,
+            String userName,
+            String password,
             ICounterService counterService)
         {
             _baseDirectory = baseDirectory;
+            this._userName = userName;
+            this._password = password;
             _blobDescriptorCollection = db.GetCollection<FileSystemBlobDescriptor>(collectionName);
-            _directoryManager = new DirectoryManager(_baseDirectory);
+            _directoryManager = new DirectoryManager(_baseDirectory, FolderPrefixLength);
 
             _counterService = counterService;
+            PinvokeWindowsNetworking.ConnectToRemote(baseDirectory, userName, password);
             Logger = NullLogger.Instance;
         }
 

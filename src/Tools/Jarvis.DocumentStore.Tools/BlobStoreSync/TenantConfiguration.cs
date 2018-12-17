@@ -21,15 +21,18 @@ namespace Jarvis.DocumentStore.Shell.BlobStoreSync
             var eventStoreConnectionString = ConfigurationServiceClient.Instance.GetSetting("connectionStrings." + tenantId + ".events");
             EventStoreDb = GetDb(eventStoreConnectionString);
 
+            fileSystemUserName = ConfigurationServiceClient.Instance.GetSetting($"storage.username", "");
+            fileSystemPassword = ConfigurationServiceClient.Instance.GetSetting($"storage.password", "");
+
             var originalConnectionString = ConfigurationServiceClient.Instance.GetSetting("connectionStrings." + tenantId + ".originals");
             //Null counter service is used to ensure that no new blob could be created.
             OriginalGridFsBlobStore = new GridFsBlobStore(GetLegacyDb(originalConnectionString), null) { Logger = logger};
             var originalFileSystemStorage = ConfigurationServiceClient.Instance.GetSetting($"storage.fileSystem.{tenantId}-originals-baseDirectory");
-            OriginalFileSystemBlobStore = new FileSystemBlobStore(GetDb(originalConnectionString), "originals.descriptor", originalFileSystemStorage, null) { Logger = logger };
+            OriginalFileSystemBlobStore = new FileSystemBlobStore(GetDb(originalConnectionString), "originals.descriptor", originalFileSystemStorage, fileSystemUserName, fileSystemPassword, null) { Logger = logger };
 
             var artifactConnectionString = ConfigurationServiceClient.Instance.GetSetting("connectionStrings." + tenantId + ".artifacts");
             var artifactsFileSystemStorage = ConfigurationServiceClient.Instance.GetSetting($"storage.fileSystem.{tenantId}-artifacts-baseDirectory");
-            ArtifactsFileSystemBlobStore = new FileSystemBlobStore(GetDb(artifactConnectionString), "artifacts.descriptor", artifactsFileSystemStorage, null) { Logger = logger };
+            ArtifactsFileSystemBlobStore = new FileSystemBlobStore(GetDb(artifactConnectionString), "artifacts.descriptor", artifactsFileSystemStorage, fileSystemUserName, fileSystemPassword, null) { Logger = logger };
 
             //Null counter service is used to ensure that no new blob could be created.
             ArtifactsGridFsBlobStore = new GridFsBlobStore(GetLegacyDb(artifactConnectionString), null) { Logger = logger };
@@ -46,6 +49,10 @@ namespace Jarvis.DocumentStore.Shell.BlobStoreSync
         public FileSystemBlobStore OriginalFileSystemBlobStore { get; private set; }
 
         public FileSystemBlobStore ArtifactsFileSystemBlobStore { get; private set; }
+
+        public String fileSystemUserName { get; set; }
+
+        public String fileSystemPassword { get; set; }
 
         private MongoDatabase GetLegacyDb(String connectionString)
         {

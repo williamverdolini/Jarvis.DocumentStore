@@ -94,7 +94,9 @@ namespace Jarvis.DocumentStore.LiveBackup.Support
 
                     case StorageType.FileSystem:
                         var originalFileSystemStorage = ConfigurationServiceClient.Instance.GetSetting($"storage.fileSystem.{TenantId}-originals-baseDirectory");
-                        return new FileSystemBlobStore(GetDb(EventStoreConnectionString), "originals.descriptor", originalFileSystemStorage, null) { Logger = logger };
+                        var fileSystemUserName = ConfigurationServiceClient.Instance.GetSetting($"storage.username", "");
+                        var fileSystemPassword = ConfigurationServiceClient.Instance.GetSetting($"storage.password", "");
+                        return new FileSystemBlobStore(GetDb(EventStoreConnectionString), "originals.descriptor", originalFileSystemStorage, fileSystemUserName, fileSystemPassword, null) { Logger = logger };
 
                     default:
                         throw new NotImplementedException("Storage type not implemented");
